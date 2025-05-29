@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Whispers in the Dark</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+    #titleScreen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: white;
+      font-size: 2em;
+      font-family: Arial, sans-serif;
+      z-index: 10;
+    }
+    #fullscreenButton {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 1em;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 10px;
+      cursor: pointer;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
+  <div id="titleScreen">
+    <h1>Whispers in the Dark</h1>
+    <p>A story of a missing family in a haunted place...</p>
+  </div>
+  <div id="fullscreenButton">Fullscreen</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.js"></script>
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      75, window.innerWidth / window.innerHeight, 0.1, 1000
+    );
+    camera.position.set(0, 1.6, 5);
+
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(100, 100),
+      new THREE.MeshStandardMaterial({ color: 0x111111 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 10, 7.5);
+    scene.add(dirLight);
+
+    // Audio
+    const listener = new THREE.AudioListener();
+    camera.add(listener);
+    const whisperSound = new THREE.Audio(listener);
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load('whisper_sound.mp3',
+      buffer => {
+        whisperSound.setBuffer(buffer);
+        whisperSound.setLoop(true);
+        whisperSound.setVolume(0.5);
+        whisperSound.play();
+      },
+      xhr => {
+        console.log(`Audio Loading: ${xhr.loaded / xhr.total * 100}%`);
+      },
+      error => {
+        console.error('Error loading whisper sound:', error);
+        alert('Failed to load sound. Continuing without audio.');
+      }
+    );
+
+    // Controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableRotate = false;
+    controls.enableZoom = false;
+
+    // WASD Movement Logic
+    const keys = {};
+    window.addEventListener('keydown', (e) => keys[e.key.toUpperCase()] = true);
+    window.addEventListener('keyup', (e) => keys[e.key.toUpperCase()] = false);
+
+    function movePlayer() {
+      const speed = 0.1;
+      const direction = new THREE.Vector3();
+
+      if (keys['W']) {
+        camera.getWorldDirection(direction);
+        direction.y = 0;
+        direction.normalize();
+        camera.position.addScaledVector(direction, speed);
+      }
+      if (keys['S']) {
+        camera.getWorldDirection(direction);
+        direction.y = 0;
+        direction.normalize();
+        camera.position.addScaledVector(direction, -speed);
+      }
+      if (keys['A']) {
+        camera.getWorldDirection(direction);
+        direction.y = 0;
+        direction.normalize();
+        direction.cross(camera.up);
+        camera.position.addScaledVector(direction, -speed);
+      }
+      if (keys['D']) {
+        camera.getWorldDirection(direction);
+        direction.y = 0;
+        direction.normalize();
+        direction.cross(camera.up);
+        camera.position.addScaledVector(direction, speed);
+      }
+    }
+
+    // Touch controls
+    let touchStart = { x: 0, y: 0 };
+    let touchMove = { x: 0, y: 0 };
+    let isTouching = false;
+
+    window.addEventListener('touchstart', (e) => {
+      touchStart.x = e.touches[0].clientX;
+      touchStart.y = e.touches[0].clientY;
+      isTouching = true;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isTouching) return;
+      touchMove.x = e.touches[0].clientX;
+      touchMove.y = e.touches[0].clientY;
+
+      const dx = touchMove.x - touchStart.x;
+      const dy = touchMove.y - touchStart.y;
+
+      camera.position.x -= dx * 0.01;
+      camera.position.z += dy * 0.01;
+
+      touchStart.x = touchMove.x;
+      touchStart.y = touchMove.y;
+    });
+
+    window.addEventListener('touchend', () => {
+      isTouching = false;
+    });
+
+    // Fullscreen toggle
+    document.getElementById('fullscreenButton').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      movePlayer();
+      renderer.render(scene, camera);
+    }
+
+    function gameStart() {
+      animate();
+    }
+
+    // Resize listener
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+
+    // Start after title screen delay
+    setTimeout(() => {
+      document.getElementById('titleScreen').style.display = 'none';
+      gameStart();
+    }, 5000);
+  </script>
+</body>
+</html>
